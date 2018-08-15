@@ -291,3 +291,46 @@ _train_poly, _test_poly = _train_poly.align(_test_poly, join = 'inner', axis = 1
 # Print out the new shapes
 print('Training data with polynomial features shape: ', _train_poly.shape)
 print('Testing data with polynomial features shape:  ', _test_poly.shape)
+
+
+
+###############      DOMAIN KNOWLEDGE ADDITION           ####################
+
+_train_domain = _train.copy()
+_test_domain = _test.copy()
+
+_train_domain['CREDIT_INCOME_PERCENT'] = _train_domain['AMT_CREDIT'] / _train_domain['AMT_INCOME_TOTAL']
+_train_domain['ANNUITY_INCOME_PERCENT'] = _train_domain['AMT_ANNUITY'] / _train_domain['AMT_INCOME_TOTAL']
+_train_domain['CREDIT_TERM'] = _train_domain['AMT_ANNUITY'] / _train_domain['AMT_CREDIT']
+_train_domain['DAYS_EMPLOYED_PERCENT'] = _train_domain['DAYS_EMPLOYED'] / _train_domain['DAYS_BIRTH']
+
+_test_domain['CREDIT_INCOME_PERCENT'] = _test_domain['AMT_CREDIT'] / _test_domain['AMT_INCOME_TOTAL']
+_test_domain['ANNUITY_INCOME_PERCENT'] = _test_domain['AMT_ANNUITY'] / _test_domain['AMT_INCOME_TOTAL']
+_test_domain['CREDIT_TERM'] = _test_domain['AMT_ANNUITY'] / _test_domain['AMT_CREDIT']
+_test_domain['DAYS_EMPLOYED_PERCENT'] = _test_domain['DAYS_EMPLOYED'] / _test_domain['DAYS_BIRTH']
+
+# plt.figure(figsize=(12, 20))
+# # iterate through the new features
+# for i, feature in enumerate(
+#         ['CREDIT_INCOME_PERCENT', 'ANNUITY_INCOME_PERCENT', 'CREDIT_TERM', 'DAYS_EMPLOYED_PERCENT']):
+#     # create a new subplot for each source
+#     plt.subplot(4, 1, i + 1)
+#     # plot repaid loans
+#     sns.kdeplot(_train_domain.loc[_train_domain['TARGET'] == 0, feature], label='target == 0')
+#     # plot loans that were not repaid
+#     sns.kdeplot(_train_domain.loc[_train_domain['TARGET'] == 1, feature], label='target == 1')
+#
+#     # Label the plots
+#     plt.title('Distribution of %s by Target Value' % feature)
+#     plt.xlabel('%s' % feature);
+#     plt.ylabel('Density');
+#
+#
+# plt.tight_layout(h_pad=2.5)
+# plt.show()
+
+
+from sklearn.ensemble import RandomForestClassifier
+
+# Make the random forest classifier
+random_forest = RandomForestClassifier(n_estimators = 100, random_state = 50, verbose = 1, n_jobs = -1)
