@@ -1,6 +1,4 @@
-# This Python 3 environment comes with many helpful analytics libraries installed
-# It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
-# For example, here's several helpful packages to load in
+
 
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
@@ -17,10 +15,15 @@ import os
 
 # sklearn preprocessing for dealing with categorical variables
 from sklearn.preprocessing import LabelEncoder
-# Any results you write to the current directory are saved as output.
+
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+
+
+###############    READ IN DATA          ###########
+
 
 _train = pd.read_csv('C:\\Users\\usaaxb85\\Documents\\Kaggle\\CreditDefaultRisk\\all\\application_train.csv')
 print('Training Data Shape: ',_train.shape)
@@ -28,19 +31,24 @@ print('Training Data Shape: ',_train.shape)
 _test = pd.read_csv('C:\\Users\\usaaxb85\\Documents\\Kaggle\\CreditDefaultRisk\\all\\application_test.csv')
 print('Testing data shape: ', _test.shape)
 
+###############    READ IN DATA          ###########
+
+
+
+###############    MISSING VALUES        ############
 
 # Function to calculate missing values by column# Funct
 def missing_values_table(df):
+
     # Total missing values
     mis_val = df.isnull().sum()
-    # print (mis_val)
 
     # Percentage of missing values
     mis_val_percent = 100 * df.isnull().sum() / len(df)
-    # print (mis_val_percent)
+
+
     # Make a table with the results
     mis_val_table = pd.concat([mis_val, mis_val_percent], axis=1)
-    # print (mis_val_table)
 
     # Rename the columns
     mis_val_table_ren_columns = mis_val_table.rename(
@@ -54,15 +62,25 @@ def missing_values_table(df):
 
     # Print some summary information
     print("Your selected dataframe has " + str(df.shape[1]) + " columns.\n"
-                                                              "There are " + str(mis_val_table_ren_columns.shape[0]) +
+          "There are " + str(mis_val_table_ren_columns.shape[0]) +
           " columns that have missing values.")
 
     # Return the dataframe with missing information
     return mis_val_table_ren_columns
 
+
 print(_train.dtypes.value_counts())
 # Missing values statistics
 missing_values = missing_values_table(_train)
+
+###############    MISSING VALUES        ############
+
+
+
+
+
+
+###############    LABEL AND ONE-HOT ENCODING        ############
 
 # Number of unique classes in each object column
 _train.select_dtypes(include =['object']).apply(pd.Series.nunique, axis = 0)
@@ -171,29 +189,105 @@ test = scaler.transform(test)
 print('Training data shape: ', train.shape)
 print('Testing data shape: ', test.shape)
 
-from sklearn.linear_model import LogisticRegression
-
-# Make the model with the specified regularization parameter
-log_reg = LogisticRegression(C = 0.0001)
-
-# Train on the training data
-log_reg.fit(train, train_labels)
-
-# Make predictions
-# Make sure to select the second column only
-log_reg_pred = log_reg.predict_proba(test)[:, 1]
 
 
-# Submission dataframe
-submit = _test[['SK_ID_CURR']]
-submit['TARGET'] = log_reg_pred
+#
+# from sklearn.linear_model import LogisticRegression
+#
+# # Make the model with the specified regularization parameter
+# log_reg = LogisticRegression(C = 0.0001)
+#
+# # Train on the training data
+# log_reg.fit(train, train_labels)
+#
+# # Make predictions
+# # Make sure to select the second column only
+# log_reg_pred = log_reg.predict_proba(test)[:, 1]
+#
+#
+# # Submission dataframe
+# submit = _test[['SK_ID_CURR']]
+# submit['TARGET'] = log_reg_pred
+#
+# submit.head()#
+#
+# # Save the submission to a csv file
+# submit.to_csv('log_reg_baseline.csv', index = False)
 
-submit.head()
+
+#############            FEATURE ENGINEERING            ###################
+
+poly_features = _train[['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3', 'DAYS_BIRTH', 'TARGET']]
+
+poly_features_test = _test[['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3', 'DAYS_BIRTH']]
+
+# imputer for handling missing values
+from sklearn.preprocessing import Imputer
+
+imputer = Imputer(strategy='median')
+
+poly_target = poly_features['TARGET']
+
+poly_features = poly_features.drop(columns=['TARGET'])
+
+# Need to impute missing values
+poly_features = imputer.fit_transform(poly_features)
+poly_features_test = imputer.transform(poly_features_test)
+
+from sklearn.preprocessing import PolynomialFeatures
+
+# Create the polynomial object with specified degree
+poly_transformer = PolynomialFeatures(degree=3)
+
+
+# Train the polynomial features
+poly_transformer.fit(poly_features)
+
+# Transform the features
+poly_features = poly_transformer.transform(poly_features)
+poly_features_test = poly_transformer.transform(poly_features_test)
+print('Polynomial Features shape: ', poly_features.shape)
 
 
 
-# Save the submission to a csv file
-submit.to_csv('log_reg_baseline.csv', index = False)
+#print(poly_transformer.get_feature_names(input_features = ['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3', 'DAYS_BIRTH']))
+
+# Put test features into dataframe
 
 
 
+# Create a dataframe of the features
+poly_features = pd.DataFrame(poly_features,
+                             columns = poly_transformer.get_feature_names(['EXT_SOURCE_1', 'EXT_SOURCE_2',
+                                                                           'EXT_SOURCE_3', 'DAYS_BIRTH']))
+
+# Add in the target
+poly_features['TARGET'] = poly_target
+
+# # Find the correlations with the target
+# poly_corrs = poly_features.corr()['TARGET'].sort_values()
+#
+# # Display most negative and most positive
+# print(poly_corrs.head(10))
+# print(poly_corrs.tail(5))
+
+
+
+poly_features_test = pd.DataFrame(poly_features_test,
+                                  columns = poly_transformer.get_feature_names(['EXT_SOURCE_1', 'EXT_SOURCE_2',
+                                                                                'EXT_SOURCE_3', 'DAYS_BIRTH']))
+
+# Merge polynomial features into training dataframe
+poly_features['SK_ID_CURR'] = _train['SK_ID_CURR']
+_train_poly = _train.merge(poly_features, on = 'SK_ID_CURR', how = 'left')
+
+# Merge polnomial features into testing dataframe
+poly_features_test['SK_ID_CURR'] = _test['SK_ID_CURR']
+_test_poly = _test.merge(poly_features_test, on = 'SK_ID_CURR', how = 'left')
+
+# Align the dataframes
+_train_poly, _test_poly = _train_poly.align(_test_poly, join = 'inner', axis = 1)
+
+# Print out the new shapes
+print('Training data with polynomial features shape: ', _train_poly.shape)
+print('Testing data with polynomial features shape:  ', _test_poly.shape)
