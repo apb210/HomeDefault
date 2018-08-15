@@ -149,47 +149,6 @@ print('The non-anomalies default on %0.2f%% of loans' % (100 * non_anom['TARGET'
 print('The anomalies default on %0.2f%% of loans' % (100 * anom['TARGET'].mean()))
 print('There are %d anomalous days of employment' % len(anom))
 
-from sklearn.preprocessing import MinMaxScaler, Imputer
-
-# Drop the target from the training data
-
-features = list(_train.columns)
-print(len(features))
-
-if 'TARGET' in _train.columns:
-    train = _train.drop(['TARGET'], axis = 1)
-else:
-    train = _train.copy()
-
-# Feature names
-features = list(train.columns)
-print(len(features))
-
-# Copy of the testing data
-test = _test.copy()
-
-# Median imputation of missing values
-imputer = Imputer(strategy='median')
-
-# Scale each feature to 0-1
-scaler = MinMaxScaler(feature_range=(0, 1))
-print(train.keys())
-# Fit on the training data
-imputer.fit(train)
-
-# Transform both training and testing data
-train = imputer.transform(train)
-test = imputer.transform(_test)
-
-# Repeat with the scaler
-scaler.fit(train)
-train = scaler.transform(train)
-test = scaler.transform(test)
-
-print('Training data shape: ', train.shape)
-print('Testing data shape: ', test.shape)
-
-
 
 #
 # from sklearn.linear_model import LogisticRegression
@@ -332,5 +291,78 @@ _test_domain['DAYS_EMPLOYED_PERCENT'] = _test_domain['DAYS_EMPLOYED'] / _test_do
 
 from sklearn.ensemble import RandomForestClassifier
 
+
+
+
+#############             RANDOM FOREST                 #################
+
+
+
+
+_train = _train_poly
+_test = _test_poly
+
+
+
+#-------------------------------------------------------------#
+
+
 # Make the random forest classifier
 random_forest = RandomForestClassifier(n_estimators = 100, random_state = 50, verbose = 1, n_jobs = -1)
+
+from sklearn.preprocessing import MinMaxScaler, Imputer
+
+# Drop the target from the training data
+
+features = list(_train.columns)
+print(len(features))
+
+if 'TARGET' in _train.columns:
+    train = _train.drop(['TARGET'], axis = 1)
+else:
+    train = _train.copy()
+
+# Feature names
+features = list(train.columns)
+print(len(features))
+
+# Copy of the testing data
+test = _test.copy()
+
+# Median imputation of missing values
+imputer = Imputer(strategy='median')
+
+# Scale each feature to 0-1
+scaler = MinMaxScaler(feature_range=(0, 1))
+print(train.keys())
+# Fit on the training data
+imputer.fit(train)
+
+# Transform both training and testing data
+train = imputer.transform(train)
+test = imputer.transform(_test)
+
+# Repeat with the scaler
+scaler.fit(train)
+train = scaler.transform(train)
+test = scaler.transform(test)
+
+print('Training data shape: ', train.shape)
+print('Testing data shape: ', test.shape)
+
+# Train on the training data
+random_forest.fit(train, train_labels)
+
+# Extract feature importances
+feature_importance_values = random_forest.feature_importances_
+feature_importances = pd.DataFrame({'feature': features, 'importance': feature_importance_values})
+
+# Make predictions on the test data
+predictions = random_forest.predict_proba(test)[:, 1]
+
+# Make a submission dataframe
+submit = _test[['SK_ID_CURR']]
+submit['TARGET'] = predictions
+
+# Save the submission dataframe
+submit.to_csv('random_forest_baseline.csv', index = False)
